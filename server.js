@@ -1,5 +1,18 @@
 const express = require('express')
 var cors = require('cors')
+const mongoose = require('mongoose') 
+const dotenv = require('dotenv')
+
+dotenv.config("./.env")
+const dbPassword = process.env.DB_PASSWORD
+
+mongoose.connect(`mongodb+srv://hajeenah:${dbPassword}@main.ooa8l.mongodb.net/?retryWrites=true&w=majority&appName=main`)
+.then(res=>{
+    console.log("DB Connected Successfully")
+})
+.catch(err=>{
+    console.log("DB Connection failed")
+})
 
 
 const app = express()
@@ -9,58 +22,53 @@ app.use(cors({
     origin: 'http://localhost:5173'
   }))
 
+const ToDoSchema = new mongoose.Schema({
+    task: {type : String}
+  });
 
-
-let tasks=[
-    {
-        _id:1,
-        task:"Go to Shop"
-    },
-    {
-        _id:2,
-        task:"Buy Groceries"
-    },
-    {
-        _id:3,
-        task:"Make a call"
-    },
-    {
-        _id:4,
-        task:"Check mails"
-    }
-]
+const todoModel = mongoose.model('ToDoList',ToDoSchema) 
 
 app.get("/",(req,res)=>{
-    res.json(tasks)
+    todoModel.find()
+    .then(todoList =>{
+        res.json({todoList})
+    })
+    .catch(err =>{
+        console.log(err)
+    })
 })
 
-app.post("/",(req, res)=>{
-    tasks.push({
-        _id:tasks.length+1,
-        task:req.body.task
-    })
-    console.log(tasks)
+app.post("/",async(req, res)=>{
+    await todoModel.create({task : req.body.task})
     res.send("Success")
 })
 
-app.delete("/task/:index",(req,res)=>{
-    console.log(req.params)
-    if(req.params.index < tasks.length){
-        tasks.splice(req.params.index,1)
-        res.send("Task deleted from the list")
-    }
-    else{
+app.delete("/task/:id",(req,res)=>{
+    todoModel.findByIdAndDelete(req.params.id)
+    .then(data =>{
+        if(data){
+            res.send("Deleted")
+        }
+        else{
+            res.status(404).json({"message":"Invalid index"})
+        }}
+    )
+    .catch(err =>{
         res.status(404).json({"message":"Invalid index"})
-    }
+    })
 
 })
 
 app.patch("/", (req,res)=>{
-    let index = req.body.id
-    let newTask = req.body.task
-    tasks[index].task = newTask
-    console.log(req.body)
-
+    let id = req.body.id
+    let newtask = req.body.task
+    todoModel.findByIdAndUpdate(id, { task: newtask })
+    .then(data =>{
+        res.send("Task Updated")
+    })
+    .catch(err=>{
+        res.status(404).json({"message":"Update failed"})
+    })
 })
 
 app.listen(3000, ()=>{
